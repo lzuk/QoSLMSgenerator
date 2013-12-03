@@ -40,6 +40,7 @@ class Database
             $this->dbl->query("SET NAMES utf8");
         } catch (PDOException $e) {
             DEBUG ? die('DATABASE CONNECTION ERROR: ' . $e->getMessage()) : die();
+            $
         }
     }
 
@@ -235,12 +236,52 @@ class Database
     {
         global $qosConfigFile;
         global $qosScriptFile;
-        global $qosDefaultSpeed;
         $nodes = $this->getQosSpecificData();
-        $tcGenerator = new TCGenerator("eth1");
-        $script = $tcGenerator->getHeader();
+        $tcGenerator = new TCGenerator();
+
         $queueID = 10;
         $config = "# queueID\tIP\t\tDOWNRATE\tDOWNCEIL\tUPRATE\tUPCEIL\n\n";
+        $IMQ_D = "eth1";
+        $script = "#!/bin/bash
+IMQ_D=eth1
+TC=/sbin/tc
+
+DOWN=98
+DOWN_UNCLASSIFIED=50 #unclassified
+DOWN_PRIO_FAST=50
+
+# kasowanie poprzednich kolejek
+\$TC qdisc del root dev \$IMQ_D > /dev/null 2>&1
+
+#
+# DOWNLOAD
+#
+
+\$TC qdisc add dev \$IMQ_D root handle 1:0 hfsc default 9
+\$TC class add dev \$IMQ_D parent 1:0 classid 1:1 hfsc ls rate \${DOWN}mbit ul rate \${DOWN}mbit # rate == m2
+
+# default
+\$TC class add dev \$IMQ_D parent 1:1 classid 1:9 hfsc ls rate \${DOWN_UNCLASSIFIED}mbit ul rate \${DOWN}mbit
+\$TC qdisc add dev \$IMQ_D parent 1:9 sfq perturb 10
+
+# PRIO + FAST #tutaj jakies ACK
+\$TC class add dev \$IMQ_D parent 1:1 classid 1:2 hfsc sc d 20ms rate \${DOWN_PRIO_FAST}mbit ul rate \${DOWN}mbit # sc = rt + ls (service curve = real time + link sharing) ul (upper limit)
+\$TC qdisc add dev \$IMQ_D parent 1:2 sfq perturb 10
+
+# NOAUTH
+\$TC class add dev \$IMQ_D parent 1:1 classid 1:8 hfsc sc d 20ms rate \${DOWN_PRIO_FAST}mbit ul rate \${DOWN}mbit # sc = rt + ls (service curve = real time + link sharing) ul (upper limit)
+\$TC qdisc add dev \$IMQ_D parent 1:8 sfq perturb 10
+
+#HASH TABLES
+#ELEKTRON 157.158.164.0/24
+\$TC filter add dev \$IMQ_D parent 1:0 prio 1 handle 100: protocol ip u32 divisor 256
+\$TC filter add dev \$IMQ_D protocol ip parent 1:0 prio 1 u32 ht 800:: match ip dst 157.158.164.0/24 hashkey mask 0x000000ff at 16 link 100:
+#ELEKTRON 157.158.165.0
+\$TC filter add dev \$IMQ_D parent 1:0 prio 1 handle 101: protocol ip u32 divisor 256
+\$TC filter add dev \$IMQ_D protocol ip parent 1:0 prio 1 u32 ht 800:: match ip dst 157.158.165.0/24 hashkey mask 0x000000ff at 16 link 101:
+#ELEKTRON NO AUTH
+\$TC filter add dev \$IMQ_D parent 1:0 protocol ip prio 2 u32 match ip dst 10.0.0.0/24 flowid 1:8\n";
+
         foreach ($nodes as $k => $v) {
             $band['queueID'] = dechex($queueID);
             $band['ip'] = $v['ipaddr'];
@@ -252,7 +293,7 @@ class Database
                     $band[$t] = $v[$t];
                 }
                 else{
-                    $band[$t] = $qosDefaultSpeed;
+                    $band[$t] = 5120;
                 }
             }
             $configLoc =
@@ -263,9 +304,9 @@ class Database
                 $band['uprate'] . "\t" .
                 $band['upceil']
                 . "\n";
-            $scriptNode = $tcGenerator->getClass($band['queueID'], $band['downrate'], $band['downceil']);
-            $scriptNode .= $tcGenerator->getQdisc($band['queueID']);
-            $scriptNode .= $tcGenerator->getFilter($band['ip'], $band['queueID']);
+            $scriptNode = $tcGenerator->getClass($IMQ_D, $band['queueID'], $band['downrate'], $band['downceil']);
+            $scriptNode .= $tcGenerator->getQdisc($IMQ_D, $band['queueID']);
+            $scriptNode .= $tcGenerator->getFilter($IMQ_D, $band['ip'], $band['queueID']);
             $queueID++;
             $config .= $configLoc;
             $script .= $scriptNode;

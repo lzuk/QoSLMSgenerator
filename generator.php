@@ -26,8 +26,8 @@ if ($core->shouldReload()) {
 $core->disconnect();
 unset($core);
 
-if (date('H') >= 17){
+if (date('H') >= 17 && date('H' < 23)){
     exec('/serwer/generator/qos.sh');
-    exec('/serwer/qosClients');
+//    exec('/serwer/qosClients');
 }
 ?>

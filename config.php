@@ -8,5 +8,4 @@
 $warningConfigFile = '/serwer/config/warning_list';
 $qosConfigFile = '/serwer/config/speeds';
 $qosScriptFile = '/serwer/qosClients';
-$qosDefaultSpeed = 10240;
 ?>
