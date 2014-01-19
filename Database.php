@@ -40,7 +40,6 @@ class Database
             $this->dbl->query("SET NAMES utf8");
         } catch (PDOException $e) {
             DEBUG ? die('DATABASE CONNECTION ERROR: ' . $e->getMessage()) : die();
-            $
         }
     }
 
