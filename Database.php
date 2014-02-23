@@ -152,6 +152,17 @@ class Database
         file_put_contents($warningConfigFile, $config);
     }
 
+     public function generateBlockedConfig($nodes){
+            global $blockedConfigFile;
+            $config = "";
+            foreach($nodes as $k => $v) {
+                if ($v['access'] == '0'){
+                   $config .= $v['ipaddr']."\n";
+                }
+            }
+            file_put_contents($blockedConfigFile, $config);
+        }
+
 
     public function generateConfig($nodes)
     {
@@ -220,6 +231,28 @@ class Database
                     $retval[$sqlresult['nodeID']][$k] = trim(iconv('ISO-8859-2', 'UTF-8', $v));
                 }
                 $retval[$sqlresult['nodeID']]['ipaddr'] = $this->dehashIP($retval[$sqlresult['nodeID']]['ipaddr']);
+                foreach ($targets as $k => $t){
+                    $retval[$sqlresult['id']][$t] = $retval[$sqlresult['id']][$t];
+                }
+            }
+            $stmt->closeCursor();
+            return $retval;
+
+        }catch (PDOException $e) {
+            DEBUG ? die('SQL Error: ' . $e->getMessage()) : die();
+        }
+    }
+    private function getDHCPSpecificData(){
+        try {
+            $sql = "SELECT * FROM vnodes";
+            $stmt = $this->dbl->prepare($sql);
+            $stmt->execute();
+            $targets = array("name", "mac");
+            while ($sqlresult = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                foreach ($sqlresult as $k => $v) {
+                    $retval[$sqlresult['id']][$k] = trim(iconv('ISO-8859-2', 'UTF-8', $v));
+                }
+                $retval[$sqlresult['id']]['ipaddr'] = $this->dehashIP($retval[$sqlresult['id']]['ipaddr']);
                 foreach ($targets as $k => $t){
                     $retval[$sqlresult['id']][$t] = $retval[$sqlresult['id']][$t];
                 }

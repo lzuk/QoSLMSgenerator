@@ -16,11 +16,12 @@ if ($core->shouldReload()) {
     exec('sudo /bin/lms-mgc');
     exec('sudo /etc/init.d/isc-dhcp-server restart');
     exec('sudo arp -f /etc/ethers');
-    //konfig dla denied jest z lms-mgc
-    exec('sudo /serwer/rc.denied start');
+    #exec('sudo /serwer/rc.denied start');
     $nodes = $core->getNodes();
     $core->generateWarningConfig($nodes);
+    $core->generateBlockedConfig($nodes);
     exec('sudo /serwer/rc.warning start');
+    exec('sudo /serwer/rc.blocked start');
     $core->updateApi('reload', '0');
 }
 $core->disconnect();
